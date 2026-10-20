@@ -1,0 +1,32 @@
+name: Build offline maps
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 1 * *" # Monthly refresh from the latest OpenStreetMap data.
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download Planetiler
+        run: curl -fsSL -o planetiler.jar https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
+      - name: Build Saudi Arabia and GCC (OpenMapTiles schema, zoom 0-14)
+        run: java -Xmx10g -jar planetiler.jar --download --area=gcc-states --output=gcc-states.pmtiles --maxzoom=14
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="maps-$(date -u +%Y%m%d)"
+          ls -lh gcc-states.pmtiles
+          gh release create "$TAG" gcc-states.pmtiles --repo "$GITHUB_REPOSITORY" --latest \
+            --title "خرائط السعودية والخليج $(date -u +%Y-%m-%d)" \
+            --notes "بيانات © OpenStreetMap contributors (ODbL) • مخطط OpenMapTiles • بُنيت بـ Planetiler."
