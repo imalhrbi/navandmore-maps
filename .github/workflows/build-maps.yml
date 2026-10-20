@@ -19,14 +19,22 @@ jobs:
           java-version: "21"
       - name: Download Planetiler
         run: curl -fsSL -o planetiler.jar https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
-      - name: Build Saudi Arabia and GCC (OpenMapTiles schema, zoom 0-14)
-        run: java -Xmx10g -jar planetiler.jar --download --area=gcc-states --output=gcc-states.pmtiles --maxzoom=14
+      - name: Download Saudi Arabia OpenStreetMap data
+        run: |
+          mkdir -p data/sources
+          curl -fL --retry 5 --retry-delay 30 -o data/sources/saudi-arabia.osm.pbf \
+            https://download.openstreetmap.fr/extracts/asia/saudi_arabia-latest.osm.pbf \
+          || curl -fL --retry 5 --retry-delay 30 -o data/sources/saudi-arabia.osm.pbf \
+            https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf
+          ls -lh data/sources
+      - name: Build Saudi Arabia (OpenMapTiles schema, zoom 0-14)
+        run: java -Xmx10g -jar planetiler.jar --download --osm-path=data/sources/saudi-arabia.osm.pbf --output=saudi-arabia.pmtiles --maxzoom=14
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="maps-$(date -u +%Y%m%d)"
-          ls -lh gcc-states.pmtiles
-          gh release create "$TAG" gcc-states.pmtiles --repo "$GITHUB_REPOSITORY" --latest \
-            --title "خرائط السعودية والخليج $(date -u +%Y-%m-%d)" \
+          TAG="maps-$(date -u +%Y%m%d-%H%M)"
+          ls -lh saudi-arabia.pmtiles
+          gh release create "$TAG" saudi-arabia.pmtiles --repo "$GITHUB_REPOSITORY" --latest \
+            --title "خريطة السعودية $(date -u +%Y-%m-%d)" \
             --notes "بيانات © OpenStreetMap contributors (ODbL) • مخطط OpenMapTiles • بُنيت بـ Planetiler."
