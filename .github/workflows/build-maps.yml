@@ -37,6 +37,10 @@ jobs:
         run: python build_roads.py data/sources/saudi-arabia.osm.pbf saudi-roads.navr
       - name: Verify road network with real trips
         run: python verify_roads.py saudi-roads.navr
+      - name: Build place index for offline search
+        run: python build_places.py data/sources/saudi-arabia.osm.pbf saudi-places.navp
+      - name: Verify place index
+        run: python verify_places.py saudi-places.navp
       - name: Build Saudi Arabia map (OpenMapTiles schema, zoom 0-14)
         run: java -Xmx10g -jar planetiler.jar --download --osm-path=data/sources/saudi-arabia.osm.pbf --output=saudi-arabia.pmtiles --maxzoom=14
       - name: Publish release
@@ -44,7 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="maps-$(date -u +%Y%m%d-%H%M)"
-          ls -lh saudi-arabia.pmtiles saudi-roads.navr
-          gh release create "$TAG" saudi-arabia.pmtiles saudi-roads.navr --repo "$GITHUB_REPOSITORY" --latest \
+          ls -lh saudi-arabia.pmtiles saudi-roads.navr saudi-places.navp
+          gh release create "$TAG" saudi-arabia.pmtiles saudi-roads.navr saudi-places.navp --repo "$GITHUB_REPOSITORY" --latest \
             --title "خريطة السعودية $(date -u +%Y-%m-%d)" \
-            --notes "بيانات © OpenStreetMap contributors (ODbL) • مخطط OpenMapTiles • بُنيت بـ Planetiler • شبكة الطرق للملاحة دون إنترنت."
+            --notes "بيانات © OpenStreetMap contributors (ODbL) • مخطط OpenMapTiles • بُنيت بـ Planetiler • شبكة الطرق والأماكن للملاحة والبحث دون إنترنت."
