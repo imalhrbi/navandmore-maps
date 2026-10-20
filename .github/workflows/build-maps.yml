@@ -11,12 +11,18 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install road builder dependencies
+        run: pip install osmium numpy
       - name: Download Planetiler
         run: curl -fsSL -o planetiler.jar https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
       - name: Download Saudi Arabia OpenStreetMap data
@@ -27,14 +33,18 @@ jobs:
           || curl -fL --retry 5 --retry-delay 30 -o data/sources/saudi-arabia.osm.pbf \
             https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf
           ls -lh data/sources
-      - name: Build Saudi Arabia (OpenMapTiles schema, zoom 0-14)
+      - name: Build road network for offline routing and speed limits
+        run: python build_roads.py data/sources/saudi-arabia.osm.pbf saudi-roads.navr
+      - name: Verify road network with real trips
+        run: python verify_roads.py saudi-roads.navr
+      - name: Build Saudi Arabia map (OpenMapTiles schema, zoom 0-14)
         run: java -Xmx10g -jar planetiler.jar --download --osm-path=data/sources/saudi-arabia.osm.pbf --output=saudi-arabia.pmtiles --maxzoom=14
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="maps-$(date -u +%Y%m%d-%H%M)"
-          ls -lh saudi-arabia.pmtiles
-          gh release create "$TAG" saudi-arabia.pmtiles --repo "$GITHUB_REPOSITORY" --latest \
+          ls -lh saudi-arabia.pmtiles saudi-roads.navr
+          gh release create "$TAG" saudi-arabia.pmtiles saudi-roads.navr --repo "$GITHUB_REPOSITORY" --latest \
             --title "خريطة السعودية $(date -u +%Y-%m-%d)" \
-            --notes "بيانات © OpenStreetMap contributors (ODbL) • مخطط OpenMapTiles • بُنيت بـ Planetiler."
+            --notes "بيانات © OpenStreetMap contributors (ODbL) • مخطط OpenMapTiles • بُنيت بـ Planetiler • شبكة الطرق للملاحة دون إنترنت."
